@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../services/weather_service.dart';
+
 class WeatherHome extends StatefulWidget {
   const WeatherHome({super.key});
 
@@ -9,8 +11,43 @@ class WeatherHome extends StatefulWidget {
 }
 
 class _WeatherHomeState extends State<WeatherHome> {
+  final WeatherService _weatherService = WeatherService();
+  Map<String, dynamic>? _weatherData;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWeather();
+  }
+
+  _loadWeather() async {
+    try {
+      print("Requesting location..."); // Debugging line 1
+      final data = await _weatherService.fetchLocalWeather();
+      print("Data received: $data");    // Debugging line 2
+      setState(() {
+        _weatherData = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print("ERROR FETCHING WEATHER: $e"); // Check your console for this!
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if(_isLoading){
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    final current = _weatherData!['current'];
+    final temp = current['temperature_2m'].round();
+    final condition = _weatherService.interpretCode(current['weather_code']);
+    final humidity = current['relative_humidity_2m'];
+    final wind  = current['wind_speed_10m'];
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -24,6 +61,10 @@ class _WeatherHomeState extends State<WeatherHome> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const Text("Current Location",style: TextStyle(fontSize: 32),),
+            Text("$temp°", style: const TextStyle(fontSize: 80)),
+            Text(condition, style: const TextStyle(color: Colors.grey)),
+
             const Text(
               "Lahore",
               style: TextStyle(fontSize: 32,fontWeight: FontWeight.w300),
