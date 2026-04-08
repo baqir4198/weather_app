@@ -11,6 +11,7 @@ class WeatherHome extends StatefulWidget {
 }
 
 class _WeatherHomeState extends State<WeatherHome> {
+  String _cityName = "Fetching City...";
   final WeatherService _weatherService = WeatherService();
   Map<String, dynamic>? _weatherData;
   bool _isLoading = true;
@@ -23,18 +24,23 @@ class _WeatherHomeState extends State<WeatherHome> {
 
   _loadWeather() async {
     try {
-      print("Requesting location..."); // Debugging line 1
       final data = await _weatherService.fetchLocalWeather();
-      print("Data received: $data");    // Debugging line 2
+
+      // Get coordinates from the data we just fetched
+      double lat = data['latitude'];
+      double lon = data['longitude'];
+
+      // Convert those coordinates to a City Name
+      String city = await _weatherService.getCityName(lat, lon);
+
       setState(() {
         _weatherData = data;
+        _cityName = city; // Update the city name
         _isLoading = false;
       });
     } catch (e) {
-      print("ERROR FETCHING WEATHER: $e"); // Check your console for this!
-      setState(() {
-        _isLoading = false;
-      });
+      print("ERROR: $e");
+      setState(() { _isLoading = false; });
     }
   }
 
@@ -43,6 +49,24 @@ class _WeatherHomeState extends State<WeatherHome> {
     if(_isLoading){
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    if (_weatherData == null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text("Couldn't get weather data."),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _loadWeather,
+                child: const Text("Try Again"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final current = _weatherData!['current'];
     final temp = current['temperature_2m'].round();
     final condition = _weatherService.interpretCode(current['weather_code']);
@@ -61,22 +85,9 @@ class _WeatherHomeState extends State<WeatherHome> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text("Current Location",style: TextStyle(fontSize: 32),),
+            Text(_cityName,style: TextStyle(fontSize: 42,fontWeight: FontWeight.w500),),
             Text("$temp°", style: const TextStyle(fontSize: 80)),
             Text(condition, style: const TextStyle(color: Colors.grey)),
-
-            const Text(
-              "Lahore",
-              style: TextStyle(fontSize: 32,fontWeight: FontWeight.w300),
-            ),
-            const Text(
-              "24°",
-              style: TextStyle(fontSize: 80,fontWeight: FontWeight.bold),
-            ),
-            const Text(
-              "PARTLY CLOUDY",
-              style: TextStyle(fontSize: 16, color: Colors.grey, letterSpacing: 1.5),
-            ),
             const SizedBox(height: 40,),
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 30),
@@ -89,9 +100,9 @@ class _WeatherHomeState extends State<WeatherHome> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _weatherDetail("Humidity","62%"),
-                  _weatherDetail("Wind","12 km/h"),
-                  _weatherDetail("Feels Like","26°"),
+                  _weatherDetail("Humidity","$humidity%"),
+                  _weatherDetail("Wind","$wind km/h"),
+                  _weatherDetail("Feels Like","${_weatherData!['current']['apparent_temperature']}°"),
                 ]
               ),
             )
@@ -100,7 +111,6 @@ class _WeatherHomeState extends State<WeatherHome> {
       ),
     );
   }
-  //kjhkjhggf
   Widget _weatherDetail(String label,String value){
     return Column(
       children: [
