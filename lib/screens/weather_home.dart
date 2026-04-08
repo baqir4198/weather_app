@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart' show Lottie;
 
 import '../services/weather_service.dart';
 
@@ -41,6 +42,22 @@ class _WeatherHomeState extends State<WeatherHome> {
     } catch (e) {
       print("ERROR: $e");
       setState(() { _isLoading = false; });
+    }
+  }
+
+  String getWeatherAnimation(String? condition){
+    if(condition == null) return 'assets/sun.json';
+    switch(condition.toLowerCase()){
+      case 'clear sky':
+        return 'assets/sun.json';
+      case 'partly cloudy':
+      case 'cloudy':
+        return 'assets/sun.json';
+      case 'raining':
+      case 'drizzle':
+        return 'assets/sun.json';
+      default:
+        return 'assets/sun.json';
     }
   }
 
@@ -86,6 +103,11 @@ class _WeatherHomeState extends State<WeatherHome> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(_cityName,style: TextStyle(fontSize: 42,fontWeight: FontWeight.w500),),
+            Lottie.asset(
+              getWeatherAnimation(condition),
+              width: 200,
+              height: 200,
+            ),
             Text("$temp°", style: const TextStyle(fontSize: 80)),
             Text(condition, style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 40,),
