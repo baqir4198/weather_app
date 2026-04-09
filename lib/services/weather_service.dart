@@ -21,7 +21,7 @@ class WeatherService {
       return Future.error('Location permissions are permanently denied.');
     }
     Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.low
+      desiredAccuracy: LocationAccuracy.high
     );
       final response = await http.get(Uri.parse(
         '$baseUrl?latitude=${position.latitude}&longitude=${position.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto'

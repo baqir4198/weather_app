@@ -45,17 +45,19 @@ class _WeatherHomeState extends State<WeatherHome> {
     }
   }
 
-  String getWeatherAnimation(String? condition){
-    if(condition == null) return 'assets/sun.json';
-    switch(condition.toLowerCase()){
+  String getWeatherAnimation(String? condition1){
+    if(condition1 == null) return 'assets/sun.json';
+    switch(condition1.toLowerCase()){
       case 'clear sky':
         return 'assets/sun.json';
       case 'partly cloudy':
+        return 'assets/partly_cloudy.json';
       case 'cloudy':
-        return 'assets/sun.json';
+        return 'assets/cloudy.json';
       case 'raining':
+        return 'assets/rainy.json';
       case 'drizzle':
-        return 'assets/sun.json';
+        return 'assets/drizzling.json';
       default:
         return 'assets/sun.json';
     }
