@@ -24,7 +24,6 @@ class WeatherService {
         desiredAccuracy: LocationAccuracy.high
     );
 
-    // UPDATED: Added hourly parameters for forecast
     final response = await http.get(Uri.parse(
         '$baseUrl?latitude=${position.latitude}&longitude=${position.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m&timezone=auto&forecast_days=1'
     ));

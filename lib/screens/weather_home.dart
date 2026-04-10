@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 import '../services/weather_service.dart';
+import 'dart:async';
 
 class WeatherHome extends StatefulWidget {
   const WeatherHome({super.key});
@@ -16,38 +17,211 @@ class _WeatherHomeState extends State<WeatherHome> {
   Map<String, dynamic>? _weatherData;
   bool _isLoading = true;
 
-  // Hourly forecast data
   List<Map<String, dynamic>> _hourlyForecast = [];
   bool _showHourly = false;
 
-  // Add these variables
   bool _isCelsius = true;
   String _greeting = "";
+  bool _isDayTime = true;
+  int _maghribHour = 18;
+  int _maghribMinute = 0;
+  Timer? _themeCheckTimer;
 
   @override
   void initState() {
     super.initState();
     _loadWeather();
     _updateGreeting();
+    _calculateMaghribTime();
+    _startThemeCheckTimer();
   }
 
-  // FUNCTION 1: Update greeting based on time of day
-  void _updateGreeting() {
-    final hour = DateTime.now().hour;
+  @override
+  void dispose() {
+    _themeCheckTimer?.cancel();
+    super.dispose();
+  }
+
+  void _calculateMaghribTime() {
+    final now = DateTime.now();
+    final month = now.month;
+
+    if (month >= 4 && month <= 9) {
+      _maghribHour = 19;
+      _maghribMinute = 15;
+    } else if (month >= 10 && month <= 11) {
+      _maghribHour = 17;
+      _maghribMinute = 45;
+    } else if (month >= 12 && month <= 2) {
+      _maghribHour = 17;
+      _maghribMinute = 15;
+    } else {
+      _maghribHour = 18;
+      _maghribMinute = 30;
+    }
+
+    print("📅 Maghrib time set to: $_maghribHour:$_maghribMinute");
+    _checkDayNightBasedOnMaghrib();
+  }
+
+  void _checkDayNightBasedOnMaghrib() {
+    final now = DateTime.now();
+    final currentHour = now.hour;
+    final currentMinute = now.minute;
+
+    final currentTotalMinutes = currentHour * 60 + currentMinute;
+    final maghribTotalMinutes = _maghribHour * 60 + _maghribMinute;
+
     setState(() {
-      if (hour < 12) {
-        _greeting = "Good Morning ☀️";
-      } else if (hour < 17) {
-        _greeting = "Good Afternoon 🌤️";
-      } else if (hour < 21) {
-        _greeting = "Good Evening 🌙";
+      _isDayTime = currentTotalMinutes < maghribTotalMinutes;
+    });
+  }
+
+  void _startThemeCheckTimer() {
+    _themeCheckTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      _checkDayNightBasedOnMaghrib();
+      _updateGreeting();
+    });
+  }
+
+  void _updateGreeting() {
+    final now = DateTime.now();
+    final hour = now.hour;
+    final isAfterMaghrib = !_isDayTime;
+
+    setState(() {
+      if (!isAfterMaghrib) {
+        if (hour < 12) {
+          _greeting = "Good Morning ☀️";
+        } else if (hour < 17) {
+          _greeting = "Good Afternoon 🌤️";
+        } else {
+          _greeting = "Good Evening 🌅";
+        }
       } else {
-        _greeting = "Good Night 🌃";
+        if (hour < 21) {
+          _greeting = "Good Evening 🌙";
+        } else {
+          _greeting = "Good Night 🌃";
+        }
       }
     });
   }
 
-  // FUNCTION 2: Convert temperature between Celsius and Fahrenheit
+  Color _getAppBarColor() {
+    if (_isDayTime) {
+      return const Color(0xFF87CEEB).withOpacity(0.9);
+    } else {
+      return const Color(0xFF0A0A2A).withOpacity(0.95);
+    }
+  }
+
+  Color _getBackgroundColor(String condition) {
+    if (_isDayTime) {
+      switch(condition.toLowerCase()) {
+        case 'clear sky':
+          return const Color(0xFF87CEEB);
+        case 'partly cloudy':
+          return const Color(0xFFB0C4DE);
+        case 'cloudy':
+          return const Color(0xFF9CA3AF);
+        case 'raining':
+        case 'drizzling':
+          return const Color(0xFF6B7280);
+        default:
+          return const Color(0xFF87CEEB);
+      }
+    } else {
+      switch(condition.toLowerCase()) {
+        case 'clear sky':
+          return const Color(0xFF0A0A2A);
+        case 'partly cloudy':
+          return const Color(0xFF1A1A3A);
+        case 'cloudy':
+          return const Color(0xFF0F0F2A);
+        case 'raining':
+        case 'drizzling':
+          return const Color(0xFF05051A);
+        default:
+          return const Color(0xFF0A0A2A);
+      }
+    }
+  }
+
+  Color _getTextColor() {
+    return _isDayTime ? Colors.black87 : Colors.white;
+  }
+
+  Color _getSubtitleColor() {
+    return _isDayTime ? Colors.black54 : Colors.white70;
+  }
+
+  Color _getCardColor() {
+    if (_isDayTime) {
+      return Colors.white.withOpacity(0.3);
+    } else {
+      return Colors.white.withOpacity(0.1);
+    }
+  }
+
+  Color _getBorderColor() {
+    if (_isDayTime) {
+      return Colors.white.withOpacity(0.5);
+    } else {
+      return Colors.white.withOpacity(0.2);
+    }
+  }
+
+  List<Color> _getGradientColors(String condition) {
+    if (_isDayTime) {
+      switch(condition.toLowerCase()) {
+        case 'clear sky':
+          return [const Color(0xFF87CEEB), const Color(0xFFE0F6FF)];
+        case 'partly cloudy':
+          return [const Color(0xFFB0C4DE), const Color(0xFFD4E6F1)];
+        case 'cloudy':
+          return [const Color(0xFF9CA3AF), const Color(0xFFD1D5DB)];
+        case 'raining':
+        case 'drizzling':
+          return [const Color(0xFF6B7280), const Color(0xFF9CA3AF)];
+        default:
+          return [const Color(0xFF87CEEB), const Color(0xFFE0F6FF)];
+      }
+    } else {
+      switch(condition.toLowerCase()) {
+        case 'clear sky':
+          return [const Color(0xFF0A0A2A), const Color(0xFF1A1A4A)];
+        case 'partly cloudy':
+          return [const Color(0xFF1A1A3A), const Color(0xFF2A2A5A)];
+        case 'cloudy':
+          return [const Color(0xFF0F0F2A), const Color(0xFF1F1F4A)];
+        case 'raining':
+        case 'drizzling':
+          return [const Color(0xFF05051A), const Color(0xFF0F0F2A)];
+        default:
+          return [const Color(0xFF0A0A2A), const Color(0xFF1A1A4A)];
+      }
+    }
+  }
+
+  String _getWeatherAdvice(String condition, int temp) {
+    if (condition.contains("Rain") || condition.contains("Drizzle")) {
+      return _isDayTime ? "Don't forget your umbrella! ☔" : "Rainy evening! Stay cozy inside 🌙☔";
+    } else if (condition.contains("Snow")) {
+      return "Wear warm clothes! ❄️";
+    } else if (temp > 30) {
+      return _isDayTime ? "It's hot! Stay hydrated 💧" : "Warm night! Keep cool 😎🌙";
+    } else if (temp < 10) {
+      return _isDayTime ? "It's cold! Wear a jacket 🧥" : "Cold evening! Bundle up 🧥🌙";
+    } else if (condition.contains("Clear") || condition.contains("Sun")) {
+      return _isDayTime ? "Perfect day to go outside! 🌞" : "Clear night! Perfect for stargazing ✨🌙";
+    } else if (condition.contains("Cloud")) {
+      return _isDayTime ? "Nice weather for a walk 🚶" : "Cloudy evening! Cozy weather ☁️🌙";
+    } else {
+      return _isDayTime ? "Have a great day! ✨" : "Have a peaceful evening! 🌙✨";
+    }
+  }
+
   String _getTemperature(int tempCelsius) {
     if (_isCelsius) {
       return "$tempCelsius°C";
@@ -57,32 +231,12 @@ class _WeatherHomeState extends State<WeatherHome> {
     }
   }
 
-  // FUNCTION 3: Get weather advice based on conditions
-  String _getWeatherAdvice(String condition, int temp) {
-    if (condition.contains("Rain") || condition.contains("Drizzle")) {
-      return "Don't forget your umbrella! ☔";
-    } else if (condition.contains("Snow")) {
-      return "Wear warm clothes! ❄️";
-    } else if (temp > 30) {
-      return "It's hot! Stay hydrated 💧";
-    } else if (temp < 10) {
-      return "It's cold! Wear a jacket 🧥";
-    } else if (condition.contains("Clear") || condition.contains("Sun")) {
-      return "Perfect day to go outside! 🌞";
-    } else if (condition.contains("Cloud")) {
-      return "Nice weather for a walk 🚶";
-    } else {
-      return "Have a great day! ✨";
-    }
-  }
-
-  // FUNCTION 4: Get weather icon emoji
   String _getWeatherEmoji(String condition) {
     switch(condition.toLowerCase()) {
       case 'clear sky':
-        return '☀️';
+        return _isDayTime ? '☀️' : '🌙';
       case 'partly cloudy':
-        return '⛅';
+        return _isDayTime ? '⛅' : '☁️🌙';
       case 'cloudy':
         return '☁️';
       case 'drizzling':
@@ -92,11 +246,10 @@ class _WeatherHomeState extends State<WeatherHome> {
       case 'snowing':
         return '❄️';
       default:
-        return '🌡️';
+        return _isDayTime ? '🌡️' : '🌙';
     }
   }
 
-  // FUNCTION 5: Get weather icon for hourly forecast
   String _getHourlyWeatherIcon(int weatherCode) {
     if (weatherCode == 0) return '☀️';
     if (weatherCode <= 3) return '⛅';
@@ -107,7 +260,6 @@ class _WeatherHomeState extends State<WeatherHome> {
     return '☁️';
   }
 
-  // FUNCTION 6: Refresh weather data
   Future<void> _refreshWeather() async {
     setState(() {
       _isLoading = true;
@@ -116,7 +268,6 @@ class _WeatherHomeState extends State<WeatherHome> {
     await _loadWeather();
   }
 
-  // FUNCTION 7: Toggle temperature unit
   void _toggleTemperatureUnit() {
     setState(() {
       _isCelsius = !_isCelsius;
@@ -129,14 +280,12 @@ class _WeatherHomeState extends State<WeatherHome> {
     );
   }
 
-  // FUNCTION 8: Toggle hourly forecast view
   void _toggleHourlyView() {
     setState(() {
       _showHourly = !_showHourly;
     });
   }
 
-  // FUNCTION 9: Get detailed weather info
   String _getDetailedInfo() {
     if (_weatherData == null) return "";
     final current = _weatherData!['current'];
@@ -148,10 +297,10 @@ class _WeatherHomeState extends State<WeatherHome> {
     return "Temperature: ${_getTemperature(temp)}\n"
         "Condition: $condition\n"
         "Humidity: $humidity%\n"
-        "Wind Speed: $wind km/h";
+        "Wind Speed: $wind km/h\n"
+        "Time: ${_isDayTime ? 'Day' : 'Night'} 🌓";
   }
 
-  // FUNCTION 10: Show weather details dialog
   void _showWeatherDetails() {
     showDialog(
       context: context,
@@ -174,30 +323,9 @@ class _WeatherHomeState extends State<WeatherHome> {
     );
   }
 
-  // FUNCTION 11: Get background color based on weather
-  Color _getBackgroundColor(String condition) {
-    switch(condition.toLowerCase()) {
-      case 'clear sky':
-        return const Color(0xFF2E335A);
-      case 'partly cloudy':
-        return const Color(0xFF3A3F6E);
-      case 'cloudy':
-        return const Color(0xFF2A2F55);
-      case 'raining':
-      case 'drizzling':
-        return const Color(0xFF1A1F45);
-      default:
-        return const Color(0xFF2E335A);
-    }
-  }
-
-  // FIXED FUNCTION 12: Parse hourly forecast from weather data
   void _parseHourlyForecast(Map<String, dynamic> data) {
-    print("=== Parsing Hourly Forecast ===");
-
     if (data.containsKey('hourly')) {
       final hourly = data['hourly'];
-      print("Hourly data keys: ${hourly.keys}");
 
       if (hourly.containsKey('time') &&
           hourly.containsKey('temperature_2m') &&
@@ -207,16 +335,11 @@ class _WeatherHomeState extends State<WeatherHome> {
         final List<dynamic> temperatures = hourly['temperature_2m'];
         final List<dynamic> weatherCodes = hourly['weather_code'];
 
-        print("Times length: ${times.length}");
-        print("Temperatures length: ${temperatures.length}");
-
         _hourlyForecast.clear();
 
-        // Get current time to show from now onwards
         DateTime now = DateTime.now();
         int currentHour = now.hour;
 
-        // Find starting index (current hour or next available)
         int startIndex = 0;
         for (int i = 0; i < times.length; i++) {
           DateTime time = DateTime.parse(times[i]);
@@ -226,31 +349,18 @@ class _WeatherHomeState extends State<WeatherHome> {
           }
         }
 
-        // Get next 24 hours from current time
         int itemsAdded = 0;
         for (int i = startIndex; i < times.length && itemsAdded < 24; i++) {
           DateTime time = DateTime.parse(times[i]);
           String hour = "${time.hour.toString().padLeft(2, '0')}:00";
 
-          // Safely get temperature
-          int temp = 0;
-          if (temperatures[i] is int) {
-            temp = temperatures[i];
-          } else if (temperatures[i] is double) {
-            temp = (temperatures[i] as double).round();
-          } else if (temperatures[i] is num) {
-            temp = (temperatures[i] as num).toInt();
-          }
+          int temp = temperatures[i] is int
+              ? temperatures[i]
+              : (temperatures[i] as double).round();
 
-          // Safely get weather code
-          int code = 0;
-          if (weatherCodes[i] is int) {
-            code = weatherCodes[i];
-          } else if (weatherCodes[i] is double) {
-            code = (weatherCodes[i] as double).round();
-          } else if (weatherCodes[i] is num) {
-            code = (weatherCodes[i] as num).toInt();
-          }
+          int code = weatherCodes[i] is int
+              ? weatherCodes[i]
+              : (weatherCodes[i] as double).round();
 
           _hourlyForecast.add({
             'time': hour,
@@ -262,25 +372,18 @@ class _WeatherHomeState extends State<WeatherHome> {
           itemsAdded++;
         }
 
-        print("✅ Parsed ${_hourlyForecast.length} hours of forecast");
-
-        // If no data found, add mock data for testing
         if (_hourlyForecast.isEmpty) {
           _addMockHourlyData();
         }
       } else {
-        print("❌ Missing required hourly fields");
         _addMockHourlyData();
       }
     } else {
-      print("❌ No hourly data in response");
       _addMockHourlyData();
     }
   }
 
-  // Add mock data for testing if API doesn't return hourly data
   void _addMockHourlyData() {
-    print("📊 Adding mock hourly data for testing");
     _hourlyForecast.clear();
     DateTime now = DateTime.now();
 
@@ -288,19 +391,11 @@ class _WeatherHomeState extends State<WeatherHome> {
       DateTime futureTime = now.add(Duration(hours: i));
       String hour = "${futureTime.hour.toString().padLeft(2, '0')}:00";
 
-      // Mock temperatures (vary throughout the day)
       int mockTemp = 18 + (i % 12);
       if (mockTemp > 30) mockTemp = 30;
       if (mockTemp < 10) mockTemp = 10;
 
-      // Mock weather codes (cycle through different weather types)
-      int mockCode = 0;
-      if (i % 6 == 0) mockCode = 0;      // Clear
-      else if (i % 6 == 1) mockCode = 2;  // Partly cloudy
-      else if (i % 6 == 2) mockCode = 3;  // Cloudy
-      else if (i % 6 == 3) mockCode = 61; // Rain
-      else if (i % 6 == 4) mockCode = 51; // Drizzle
-      else mockCode = 0;                  // Clear
+      int mockCode = i % 6 == 0 ? 0 : (i % 6 == 1 ? 2 : (i % 6 == 2 ? 3 : (i % 6 == 3 ? 61 : (i % 6 == 4 ? 51 : 0))));
 
       _hourlyForecast.add({
         'time': hour,
@@ -309,21 +404,15 @@ class _WeatherHomeState extends State<WeatherHome> {
         'icon': _getHourlyWeatherIcon(mockCode),
       });
     }
-
-    print("✅ Added ${_hourlyForecast.length} hours of mock data");
   }
 
   _loadWeather() async {
     try {
       final data = await _weatherService.fetchLocalWeather();
-      print("Weather data received: ${data.keys}");
-      print("Has hourly? ${data.containsKey('hourly')}");
-
       double lat = data['latitude'];
       double lon = data['longitude'];
       String city = await _weatherService.getCityName(lat, lon);
 
-      // Parse hourly forecast
       _parseHourlyForecast(data);
 
       setState(() {
@@ -333,6 +422,7 @@ class _WeatherHomeState extends State<WeatherHome> {
       });
 
       _updateGreeting();
+      _calculateMaghribTime();
 
     } catch (e) {
       print("ERROR: $e");
@@ -344,7 +434,7 @@ class _WeatherHomeState extends State<WeatherHome> {
     if(condition == null) return 'assets/sun.json';
     switch(condition.toLowerCase()){
       case 'clear sky':
-        return 'assets/sun.json';
+        return _isDayTime ? 'assets/sun.json' : 'assets/moon.json';
       case 'partly cloudy':
         return 'assets/partly_cloudy.json';
       case 'cloudy':
@@ -389,42 +479,49 @@ class _WeatherHomeState extends State<WeatherHome> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_greeting),
+        title: Text(
+          _greeting,
+          style: TextStyle(
+            color: _getTextColor(),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
+        elevation: 4,
+        backgroundColor: _getAppBarColor(),
+        shadowColor: _isDayTime ? Colors.black26 : Colors.black54,
         actions: [
-          // Hourly forecast toggle button
           IconButton(
-            icon: Icon(_showHourly ? Icons.today : Icons.schedule),
+            icon: Icon(_showHourly ? Icons.today : Icons.schedule,
+                color: _getTextColor()),
             onPressed: _toggleHourlyView,
             tooltip: _showHourly ? "Show Current" : "Show Hourly",
           ),
-          // Temperature unit toggle button
           IconButton(
-            icon: Text(_isCelsius ? "°C" : "°F", style: const TextStyle(fontSize: 18)),
+            icon: Text(_isCelsius ? "°C" : "°F",
+                style: TextStyle(fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: _getTextColor())),
             onPressed: _toggleTemperatureUnit,
           ),
-          // Info button
           IconButton(
-            icon: const Icon(Icons.info_outline),
+            icon: Icon(Icons.info_outline, color: _getTextColor()),
             onPressed: _showWeatherDetails,
           ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: _refreshWeather,
+        color: _isDayTime ? Colors.blue : Colors.white,
+        backgroundColor: _isDayTime ? Colors.white : const Color(0xFF0A0A2A),
         child: Container(
           width: double.infinity,
           decoration: BoxDecoration(
-              gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    _getBackgroundColor(condition),
-                    const Color(0xFF1C1B33)
-                  ]
-              )
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: _getGradientColors(condition),
+            ),
           ),
           child: _showHourly ? _buildHourlyForecast() : _buildCurrentWeather(),
         ),
@@ -432,7 +529,6 @@ class _WeatherHomeState extends State<WeatherHome> {
     );
   }
 
-  // Build current weather view
   Widget _buildCurrentWeather() {
     final current = _weatherData!['current'];
     final temp = current['temperature_2m'].round();
@@ -447,23 +543,25 @@ class _WeatherHomeState extends State<WeatherHome> {
         children: [
           const SizedBox(height: 20),
 
-          // Weather advice chip
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             margin: const EdgeInsets.only(bottom: 20),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: _getCardColor(),
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _getBorderColor()),
             ),
             child: Text(
               _getWeatherAdvice(condition, temp),
-              style: const TextStyle(fontSize: 14),
+              style: TextStyle(fontSize: 14, color: _getTextColor()),
             ),
           ),
 
-          Text(_cityName, style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w500)),
+          Text(
+            _cityName,
+            style: TextStyle(fontSize: 42, fontWeight: FontWeight.w500, color: _getTextColor()),
+          ),
 
-          // Weather animation
           Center(
             child: Lottie.asset(
               getWeatherAnimation(condition),
@@ -475,32 +573,30 @@ class _WeatherHomeState extends State<WeatherHome> {
                   width: 220,
                   height: 220,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: _getCardColor(),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.cloud,
+                    _isDayTime ? Icons.wb_sunny : Icons.nightlight_round,
                     size: 80,
-                    color: Colors.white.withOpacity(0.5),
+                    color: _getTextColor(),
                   ),
                 );
               },
             ),
           ),
 
-          // Temperature with toggle
           GestureDetector(
             onTap: _toggleTemperatureUnit,
             child: Text(
               _getTemperature(temp),
-              style: const TextStyle(fontSize: 80, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 80, fontWeight: FontWeight.bold, color: _getTextColor()),
             ),
           ),
 
           const SizedBox(height: 10),
-          Text(condition, style: const TextStyle(color: Colors.grey, fontSize: 18)),
+          Text(condition, style: TextStyle(color: _getSubtitleColor(), fontSize: 18)),
 
-          // Weather emoji
           Text(
             _getWeatherEmoji(condition),
             style: const TextStyle(fontSize: 30),
@@ -512,9 +608,9 @@ class _WeatherHomeState extends State<WeatherHome> {
             margin: const EdgeInsets.symmetric(horizontal: 30),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: _getCardColor(),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: _getBorderColor()),
             ),
             child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -528,13 +624,12 @@ class _WeatherHomeState extends State<WeatherHome> {
 
           const SizedBox(height: 20),
 
-          // Refresh button
           TextButton.icon(
             onPressed: _refreshWeather,
-            icon: const Icon(Icons.refresh),
-            label: const Text("Refresh Weather"),
+            icon: Icon(Icons.refresh, color: _getTextColor()),
+            label: Text("Refresh Weather", style: TextStyle(color: _getTextColor())),
             style: TextButton.styleFrom(
-              foregroundColor: Colors.white70,
+              foregroundColor: _getTextColor(),
             ),
           ),
 
@@ -544,14 +639,13 @@ class _WeatherHomeState extends State<WeatherHome> {
     );
   }
 
-  // Build hourly forecast view
   Widget _buildHourlyForecast() {
     if (_hourlyForecast.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text("No hourly data available"),
+            Text("No hourly data available", style: TextStyle(color: _getTextColor())),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
@@ -571,19 +665,18 @@ class _WeatherHomeState extends State<WeatherHome> {
       children: [
         const SizedBox(height: 20),
 
-        // Header with info
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: Column(
             children: [
-              const Text(
+              Text(
                 "24-Hour Forecast",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _getTextColor()),
               ),
               const SizedBox(height: 5),
               Text(
                 "Next ${_hourlyForecast.length} hours",
-                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                style: TextStyle(fontSize: 12, color: _getSubtitleColor()),
               ),
             ],
           ),
@@ -591,7 +684,6 @@ class _WeatherHomeState extends State<WeatherHome> {
 
         const SizedBox(height: 10),
 
-        // Hourly forecast list
         Expanded(
           child: ListView.builder(
             itemCount: _hourlyForecast.length,
@@ -601,40 +693,39 @@ class _WeatherHomeState extends State<WeatherHome> {
                 margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: _getCardColor(),
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                  border: Border.all(color: _getBorderColor()),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Time
                     Row(
                       children: [
-                        Icon(Icons.access_time, size: 16, color: Colors.grey[400]),
+                        Icon(Icons.access_time, size: 16, color: _getSubtitleColor()),
                         const SizedBox(width: 8),
                         Text(
                           hour['time'],
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
+                            color: _getTextColor(),
                           ),
                         ),
                       ],
                     ),
 
-                    // Weather icon
                     Text(
                       hour['icon'],
                       style: const TextStyle(fontSize: 28),
                     ),
 
-                    // Temperature
                     Text(
                       _getTemperature(hour['temp']),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w500,
+                        color: _getTextColor(),
                       ),
                     ),
                   ],
@@ -646,14 +737,13 @@ class _WeatherHomeState extends State<WeatherHome> {
 
         const SizedBox(height: 20),
 
-        // Back button
         ElevatedButton.icon(
           onPressed: _toggleHourlyView,
           icon: const Icon(Icons.arrow_back),
           label: const Text("Back to Current Weather"),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white.withOpacity(0.2),
-            foregroundColor: Colors.white,
+            backgroundColor: _getCardColor(),
+            foregroundColor: _getTextColor(),
           ),
         ),
 
@@ -665,9 +755,9 @@ class _WeatherHomeState extends State<WeatherHome> {
   Widget _weatherDetail(String label, String value){
     return Column(
       children: [
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        Text(label, style: TextStyle(color: _getSubtitleColor(), fontSize: 12)),
         const SizedBox(height: 5),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _getTextColor())),
       ],
     );
   }
