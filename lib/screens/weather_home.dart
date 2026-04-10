@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 import '../services/weather_service.dart';
 import 'dart:async';
+import 'package:adhan/adhan.dart';
 
 class WeatherHome extends StatefulWidget {
   const WeatherHome({super.key});
@@ -27,12 +28,14 @@ class _WeatherHomeState extends State<WeatherHome> {
   int _maghribMinute = 0;
   Timer? _themeCheckTimer;
 
+  double _userLatitude = 0.0;
+  double _userLongitude = 0.0;
+
   @override
   void initState() {
     super.initState();
     _loadWeather();
     _updateGreeting();
-    _calculateMaghribTime();
     _startThemeCheckTimer();
   }
 
@@ -42,7 +45,27 @@ class _WeatherHomeState extends State<WeatherHome> {
     super.dispose();
   }
 
-  void _calculateMaghribTime() {
+  void _calculateMaghribTime(double latitude, double longitude) {
+    try {
+      final coordinates = Coordinates(latitude, longitude);
+      final params = CalculationMethod.muslim_world_league.getParameters();
+      final prayerTimes = PrayerTimes.today(coordinates, params);
+
+      final maghribDateTime = prayerTimes.maghrib;
+
+      _maghribHour = maghribDateTime.hour;
+      _maghribMinute = maghribDateTime.minute;
+
+      print("📍 Accurate Maghrib time for today: ${_maghribHour.toString().padLeft(2, '0')}:${_maghribMinute.toString().padLeft(2, '0')}");
+
+      _checkDayNightBasedOnMaghrib();
+    } catch (e) {
+      print("Error calculating Maghrib time: $e");
+      _fallbackMaghribTime();
+    }
+  }
+
+  void _fallbackMaghribTime() {
     final now = DateTime.now();
     final month = now.month;
 
@@ -60,7 +83,7 @@ class _WeatherHomeState extends State<WeatherHome> {
       _maghribMinute = 30;
     }
 
-    print("📅 Maghrib time set to: $_maghribHour:$_maghribMinute");
+    print("📅 Using fallback Maghrib time: $_maghribHour:$_maghribMinute");
     _checkDayNightBasedOnMaghrib();
   }
 
@@ -75,6 +98,10 @@ class _WeatherHomeState extends State<WeatherHome> {
     setState(() {
       _isDayTime = currentTotalMinutes < maghribTotalMinutes;
     });
+
+    print("🌓 Theme: ${_isDayTime ? 'Day (Before Maghrib)' : 'Night (After Maghrib)'}");
+    print("Current time: ${currentHour.toString().padLeft(2, '0')}:${currentMinute.toString().padLeft(2, '0')}");
+    print("Maghrib time: ${_maghribHour.toString().padLeft(2, '0')}:${_maghribMinute.toString().padLeft(2, '0')}");
   }
 
   void _startThemeCheckTimer() {
@@ -298,7 +325,8 @@ class _WeatherHomeState extends State<WeatherHome> {
         "Condition: $condition\n"
         "Humidity: $humidity%\n"
         "Wind Speed: $wind km/h\n"
-        "Time: ${_isDayTime ? 'Day' : 'Night'} 🌓";
+        "Maghrib: ${_maghribHour.toString().padLeft(2, '0')}:${_maghribMinute.toString().padLeft(2, '0')}\n"
+        "Time: ${_isDayTime ? 'Day (Before Maghrib)' : 'Night (After Maghrib)'} 🕌";
   }
 
   void _showWeatherDetails() {
@@ -413,6 +441,11 @@ class _WeatherHomeState extends State<WeatherHome> {
       double lon = data['longitude'];
       String city = await _weatherService.getCityName(lat, lon);
 
+      _userLatitude = lat;
+      _userLongitude = lon;
+
+      _calculateMaghribTime(lat, lon);
+
       _parseHourlyForecast(data);
 
       setState(() {
@@ -422,7 +455,6 @@ class _WeatherHomeState extends State<WeatherHome> {
       });
 
       _updateGreeting();
-      _calculateMaghribTime();
 
     } catch (e) {
       print("ERROR: $e");
@@ -714,12 +746,10 @@ class _WeatherHomeState extends State<WeatherHome> {
                         ),
                       ],
                     ),
-
                     Text(
                       hour['icon'],
                       style: const TextStyle(fontSize: 28),
                     ),
-
                     Text(
                       _getTemperature(hour['temp']),
                       style: TextStyle(
